@@ -1,35 +1,27 @@
 "use client";
 
-import * as z from "zod";
 import axios from "axios";
 import { MessageSquare } from "lucide-react";
-import { useForm } from "react-hook-form";
 import { useState } from "react";
-// import { toast } from "react-hot-toast";
-import { useRouter } from "next/navigation";
 import { ChatCompletionRequestMessage } from "openai";
-
 import { BotAvatar } from "@/components/bot-avatar";
 import Heading from "@/components/heading";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { cn } from "@/lib/utils";
 import { Loader } from "@/components/loader";
 import { UserAvatar } from "@/components/user-avatar";
-// import { Empty } from "@/components/ui/empty";
-// import { useProModal } from "@/hooks/use-pro-modal";
+
+//TODO - fix writing message css, put the assistant message in the correct place, make the AI model selectable, make the conversation available only to premium users
 
 const ConversationPage = () => {
-  // const proModal = useProModal();
   const [messages, setMessages] = useState<ChatCompletionRequestMessage[]>([]);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
-  // const isLoading = form.formState.isSubmitting;
-  const onSubmit = async () => {
+  const [writtingMessage, setWrittingMessage] = useState("");
+  const onSubmit = async (e: any) => {
+    e.preventDefault();
     setIsLoading(true);
+    setMessage("");
     try {
       const userMessage: ChatCompletionRequestMessage = {
         role: "user",
@@ -37,19 +29,44 @@ const ConversationPage = () => {
       };
       const newMessages = [...messages, userMessage];
 
-      const response = await axios.post("/api/conversation", {
-        messages: newMessages,
+      // const response: any = await axios.post("/api/conversation", {
+      //   messages: newMessages,
+      // });
+      const response = await fetch("/api/conversation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          newMessages,
+        }),
       });
-      console.log("response in front: ", response);
-      // setMessages((current) => [...current, userMessage, response.data]);
-      setMessage("It works!");
-      
-      // form.reset();
+      console.log("response no try", response)
+      if (!response.ok) throw new Error(response.statusText);
+
+      const data = response.body;
+      if (!data) {
+        return;
+      }
+      const reader = data.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        const chuckValue = decoder.decode(value);
+        setWrittingMessage((prev) => prev + chuckValue);
+      }
+
+      setMessages((current) => [
+        ...current,
+        userMessage,
+        { role: "assistant", content: writtingMessage },
+      ]);
     } catch (error: any) {
       console.log("catch in front");
     } finally {
       setIsLoading(false);
-      // router.refresh();
     }
   };
 
@@ -57,28 +74,36 @@ const ConversationPage = () => {
     <div>
       <Heading
         title="Conversation"
-        description="Our most advanced conversation model."
+        description="Our text models"
         Icon={MessageSquare}
         iconColor="text-violet-500"
         bgColor="bg-violet-500/10"
       />
       <div className="px-4 lg:px-8">
         <div>
-          <form onSubmit={onSubmit}>
+          <form
+            onSubmit={onSubmit}
+            className="border flex p-2 rounded-lg flex-col lg:flex-row"
+          >
             <input
               type="text"
+              className="flex-1 outline-none focus:outline-none mb-4 pl-2 lg:mb-0"
               value={message}
+              placeholder="2 + 2 ?"
               onChange={(e) => setMessage(e.target.value)}
             />
-            <Button type="submit">ask</Button>
+            <Button type="submit">
+              {isLoading ? (
+                <div className="rounded-lg flex items-center justify-center">
+                  <Loader />
+                </div>
+              ) : (
+                "Ask!"
+              )}
+            </Button>
           </form>
         </div>
         <div className="space-y-4 mt-4">
-          {isLoading && (
-            <div className="p-8 rounded-lg w-full flex items-center justify-center bg-muted">
-              <Loader />
-            </div>
-          )}
           {/* {messages.length === 0 && !isLoading && (
             <Empty label="No conversation started." />
           )} */}
@@ -97,6 +122,7 @@ const ConversationPage = () => {
                 <p className="text-sm">{message.content}</p>
               </div>
             ))}
+            {writtingMessage}
           </div>
         </div>
       </div>

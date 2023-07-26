@@ -1,18 +1,18 @@
 import { auth } from "@clerk/nextjs";
 import { NextResponse } from "next/server";
 import { Configuration, OpenAIApi } from "openai";
-
+import { OpenAIStream, OpenAIStreamPayload } from "@/lib/openAIStream";
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const openai = new OpenAIApi(configuration);
+// const openai = new OpenAIApi(configuration);
 
 export async function POST(req: Request) {
   try {
     const { userId } = auth();
     const body = await req.json();
-    const { messages } = body;
+    const { newMessages } = body;
     // console.log("body", body);
 
     if (!userId) {
@@ -25,20 +25,23 @@ export async function POST(req: Request) {
       });
     }
 
-    if (!messages) {
+    if (!newMessages) {
       return new NextResponse("Messages are required", { status: 400 });
     }
 
-    const response = await openai.createChatCompletion({
+    const payload: OpenAIStreamPayload = {
       model: "gpt-3.5-turbo",
-      messages,
-    });
-
-    console.log("response no back end", response.data.choices[0].message);
-    return new NextResponse(JSON.stringify(response.data.choices[0].message), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
+      messages: newMessages,
+      temperature: 0.6,
+      top_p: 1,
+      frequency_penalty: 0.2,
+      presence_penalty: 0.2,
+      max_tokens: 1000,
+      stream: true,
+      n: 1,
+    };
+    const stream = await OpenAIStream(payload);
+    return new Response(stream);
   } catch (error) {
     console.log("[CONVERSATION_ERROR]", error);
     return new NextResponse("Internal Error", { status: 500 });
