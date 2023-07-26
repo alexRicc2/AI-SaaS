@@ -11,6 +11,7 @@ import { Loader } from "@/components/loader";
 import { UserAvatar } from "@/components/user-avatar";
 import ReactMarkdown from "react-markdown";
 //TODO - fix writing message css, put the assistant message in the correct place, make the AI model selectable, make the conversation available only to premium users, fix inspect elements warnings
+const EMPTY_AI_MESSSAGE: ChatCompletionRequestMessage = {role: 'assistant', content: ''}
 
 const ConversationPage = () => {
   const [messages, setMessages] = useState<ChatCompletionRequestMessage[]>([]);
@@ -28,7 +29,7 @@ const ConversationPage = () => {
         role: "user",
         content: message,
       };
-      const newMessages = [...messages, userMessage];
+      const newMessages = [...messages, userMessage, EMPTY_AI_MESSSAGE];
       setMessages(newMessages);
 
       const response = await fetch("/api/conversation", {
@@ -50,7 +51,6 @@ const ConversationPage = () => {
       const reader = data.getReader();
       const decoder = new TextDecoder();
       let done = false;
-      let iteraction = 0;
 
       while (!done) {
         const { value, done: doneReading } = await reader.read();
@@ -115,9 +115,9 @@ const ConversationPage = () => {
             <Empty label="No conversation started." />
           )} */}
           <div className="flex flex-col-reverse gap-y-4">
-            {messages.map((message) => (
+            {messages.map((message, i) => (
               <div
-                key={message.content}
+                key={i}
                 className={cn(
                   "p-8 w-full flex items-center gap-x-8 rounded-lg",
                   message.role === "user"
