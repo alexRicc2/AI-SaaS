@@ -1,6 +1,5 @@
 "use client";
 
-import axios from "axios";
 import { MessageSquare } from "lucide-react";
 import { useState } from "react";
 import { ChatCompletionRequestMessage } from "openai";
@@ -10,14 +9,16 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Loader } from "@/components/loader";
 import { UserAvatar } from "@/components/user-avatar";
-
-//TODO - fix writing message css, put the assistant message in the correct place, make the AI model selectable, make the conversation available only to premium users
+import ReactMarkdown from "react-markdown";
+//TODO - fix writing message css, put the assistant message in the correct place, make the AI model selectable, make the conversation available only to premium users, fix inspect elements warnings
 
 const ConversationPage = () => {
   const [messages, setMessages] = useState<ChatCompletionRequestMessage[]>([]);
+  const [doneResponse, setDoneResponse] = useState(false);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [writtingMessage, setWrittingMessage] = useState("");
+
   const onSubmit = async (e: any) => {
     e.preventDefault();
     setIsLoading(true);
@@ -28,10 +29,8 @@ const ConversationPage = () => {
         content: message,
       };
       const newMessages = [...messages, userMessage];
+      setMessages(newMessages);
 
-      // const response: any = await axios.post("/api/conversation", {
-      //   messages: newMessages,
-      // });
       const response = await fetch("/api/conversation", {
         method: "POST",
         headers: {
@@ -41,7 +40,7 @@ const ConversationPage = () => {
           newMessages,
         }),
       });
-      console.log("response no try", response)
+      console.log("response no try", response);
       if (!response.ok) throw new Error(response.statusText);
 
       const data = response.body;
@@ -51,18 +50,26 @@ const ConversationPage = () => {
       const reader = data.getReader();
       const decoder = new TextDecoder();
       let done = false;
+      let iteraction = 0;
+
       while (!done) {
         const { value, done: doneReading } = await reader.read();
         done = doneReading;
         const chuckValue = decoder.decode(value);
-        setWrittingMessage((prev) => prev + chuckValue);
+        setMessages((prev) => {
+          const previousMessages =
+            prev.length > 1 ? [...prev.slice(0, -1)] : [...prev];
+          const currentLastContent =
+            prev.length > 1 ? prev[prev.length - 1].content : "";
+          return [
+            ...previousMessages,
+            {
+              role: "assistant",
+              content: currentLastContent + chuckValue,
+            },
+          ];
+        });
       }
-
-      setMessages((current) => [
-        ...current,
-        userMessage,
-        { role: "assistant", content: writtingMessage },
-      ]);
     } catch (error: any) {
       console.log("catch in front");
     } finally {
@@ -112,14 +119,18 @@ const ConversationPage = () => {
               <div
                 key={message.content}
                 className={cn(
-                  "p-8 w-full flex items-start gap-x-8 rounded-lg",
+                  "p-8 w-full flex items-center gap-x-8 rounded-lg",
                   message.role === "user"
                     ? "bg-white border border-black/10"
                     : "bg-muted"
                 )}
               >
                 {message.role === "user" ? <UserAvatar /> : <BotAvatar />}
-                <p className="text-sm">{message.content}</p>
+                <div className="flex w-full flex-col gap-y-8">
+                  {message.content && (
+                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                  )}
+                </div>
               </div>
             ))}
             {writtingMessage}
