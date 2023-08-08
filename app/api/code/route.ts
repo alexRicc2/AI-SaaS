@@ -1,14 +1,13 @@
 import { auth } from "@clerk/nextjs";
 import { NextResponse } from "next/server";
-import { Configuration } from "openai";
+import { Configuration, OpenAIApi } from "openai";
 import { OpenAIStream, OpenAIStreamPayload } from "@/lib/openAIStream";
-import { increaseApiLimit, checkApiLimit } from "@/lib/api-limit";
-
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
 // const openai = new OpenAIApi(configuration);
+
 export async function POST(req: Request) {
   try {
     const { userId } = auth();
@@ -30,11 +29,6 @@ export async function POST(req: Request) {
       return new NextResponse("Messages are required", { status: 400 });
     }
 
-    const freeTrial = await checkApiLimit();
-    if (!freeTrial) {
-      return new NextResponse("free trial has expired", { status: 403 });
-    }
-
     const payload: OpenAIStreamPayload = {
       model: "gpt-3.5-turbo",
       messages: newMessages,
@@ -46,9 +40,7 @@ export async function POST(req: Request) {
       stream: true,
       n: 1,
     };
-    await increaseApiLimit();
     const stream = await OpenAIStream(payload);
-
     return new Response(stream);
   } catch (error) {
     console.log("[CONVERSATION_ERROR]", error);

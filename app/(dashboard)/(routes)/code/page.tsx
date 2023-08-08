@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquare } from "lucide-react";
+import { Code, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ChatCompletionRequestMessage } from "openai";
 import { BotAvatar } from "@/components/bot-avatar";
@@ -15,9 +15,13 @@ const EMPTY_AI_MESSSAGE: ChatCompletionRequestMessage = {
   role: "assistant",
   content: "",
 };
+const instructionMessage: ChatCompletionRequestMessage = {
+  role: 'system',
+  content: 'You are a code generator, you must answer only in markdown code  snippets. Use code comments for  explanations.'
+}
 
 const ConversationPage = () => {
-  const [messages, setMessages] = useState<ChatCompletionRequestMessage[]>([]);
+  const [messages, setMessages] = useState<ChatCompletionRequestMessage[]>([instructionMessage]);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -84,11 +88,11 @@ const ConversationPage = () => {
   return (
     <div>
       <Heading
-        title="Conversation"
-        description="Our text models"
-        Icon={MessageSquare}
-        iconColor="text-violet-500"
-        bgColor="bg-violet-500/10"
+        title="Code generator"
+        description="generate your solution with our assistant"
+        Icon={Code}
+        iconColor="text-blue-500"
+        bgColor="bg-blue-500/10"
       />
       <div className="px-4 lg:px-8">
         <div>
@@ -119,7 +123,7 @@ const ConversationPage = () => {
             <Empty label="No conversation started." />
           )} */}
           <div className="flex flex-col-reverse gap-y-4">
-            {messages.map((message, i) => (
+            {messages.slice(1).map((message, i) => (
               <div
                 key={i}
                 className={cn(
